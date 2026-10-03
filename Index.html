@@ -21,11 +21,16 @@
   .summary .l{font-size:11px;color:var(--muted);margin-top:2px;}
 
   label{display:block;font-size:13px;color:var(--muted);margin:16px 0 8px;}
-  input[type=number], input[type=date], input[type=text]{
+  input[type=number], input[type=date], input[type=text], select{
     width:100%; background:var(--card); border:1px solid var(--border); color:var(--text);
     border-radius:12px; padding:14px; font-size:18px; -webkit-appearance:none;
   }
   input[type=number]{font-size:28px; font-weight:700; text-align:center;}
+  select{
+    appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238b93a7'><path d='M7 10l5 5 5-5z'/></svg>");
+    background-repeat:no-repeat; background-position:right 14px center; background-size:20px;
+  }
 
   .chips{display:flex; flex-wrap:wrap; gap:8px;}
   .chip{
@@ -34,7 +39,6 @@
     border-radius:10px; padding:12px 10px; font-size:14px; cursor:pointer; user-select:none;
   }
   .chip.active{background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700;}
-  .chip.active.alan{background:var(--purple); border-color:var(--purple);}
 
   .submit-bar{
     position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(12px + env(safe-area-inset-bottom));
@@ -73,20 +77,17 @@
   <label>Monto</label>
   <input type="number" id="monto" inputmode="decimal" placeholder="0" autofocus>
 
+  <label>¿En qué fue?</label>
+  <input type="text" id="concepto" placeholder="Ej. Uber al trabajo, súper, gasolina…">
+
   <label>Categoría</label>
-  <div class="chips" id="chips-categoria"></div>
+  <select id="categoria"><option value="">Selecciona…</option></select>
 
   <label>Banco / forma de pago</label>
   <div class="chips" id="chips-banco"></div>
 
-  <label>De quién</label>
-  <div class="chips" id="chips-quien"></div>
-
   <label>Fecha</label>
   <input type="date" id="fecha">
-
-  <label>Nota (opcional)</label>
-  <input type="text" id="nota" placeholder="Ej. Uber al trabajo">
 
   <div class="submit-bar">
     <button id="save">Guardar gasto</button>
@@ -98,14 +99,14 @@
   // y hay que actualizarla aquí.
   var API_URL = 'https://script.google.com/macros/s/AKfycbzxcVSBTqKHp38JfhhPQQh2_9hVuGxUOhA6g5Gckl-iJ8qtvwuqe9dmwrMqV3m6hJHn/exec';
 
-  var state = { categoria: null, banco: null, quien: null };
+  var state = { banco: null };
 
   function money(n){
     n = Number(n) || 0;
     return '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
   }
 
-  function buildChips(containerId, options, stateKey, alanAware){
+  function buildChips(containerId, options, stateKey){
     var el = document.getElementById(containerId);
     el.innerHTML = '';
     options.forEach(function(opt){
@@ -115,10 +116,9 @@
       chip.onclick = function(){
         state[stateKey] = opt;
         Array.prototype.forEach.call(el.children, function(c){
-          c.classList.remove('active','alan');
+          c.classList.remove('active');
         });
         chip.classList.add('active');
-        if (alanAware && opt === 'Alan') chip.classList.add('alan');
       };
       el.appendChild(chip);
     });
@@ -156,9 +156,13 @@
       .then(function(r){ return r.json(); })
       .then(function(opts){
         if (opts.error) { showToast(opts.error, true); return; }
-        buildChips('chips-categoria', opts.categorias, 'categoria', false);
-        buildChips('chips-banco', opts.bancos, 'banco', false);
-        buildChips('chips-quien', opts.quienes, 'quien', true);
+        buildChips('chips-banco', opts.bancos, 'banco');
+        var sel = document.getElementById('categoria');
+        opts.categorias.forEach(function(cat){
+          var o = document.createElement('option');
+          o.value = cat; o.textContent = cat;
+          sel.appendChild(o);
+        });
       })
       .catch(function(err){ showToast('No se pudo conectar: ' + err.message, true); });
 
@@ -167,21 +171,22 @@
 
   document.getElementById('save').addEventListener('click', function(){
     var monto = document.getElementById('monto').value;
+    var concepto = document.getElementById('concepto').value.trim();
+    var categoria = document.getElementById('categoria').value;
     if (!monto || Number(monto) <= 0){ showToast('Falta el monto', true); return; }
-    if (!state.categoria){ showToast('Elige una categoría', true); return; }
+    if (!concepto){ showToast('Escribe en qué fue el gasto', true); return; }
+    if (!categoria){ showToast('Elige una categoría', true); return; }
     if (!state.banco){ showToast('Elige el banco', true); return; }
-    if (!state.quien){ showToast('Elige de quién', true); return; }
 
     var btn = document.getElementById('save');
     btn.disabled = true; btn.textContent = 'Guardando…';
 
     var payload = {
       monto: monto,
-      categoria: state.categoria,
+      concepto: concepto,
+      categoria: categoria,
       banco: state.banco,
-      quien: state.quien,
-      fecha: document.getElementById('fecha').value,
-      nota: document.getElementById('nota').value
+      fecha: document.getElementById('fecha').value
     };
 
     fetch(API_URL, {
@@ -197,7 +202,8 @@
         }
         showToast('Gasto guardado ✓', false);
         document.getElementById('monto').value = '';
-        document.getElementById('nota').value = '';
+        document.getElementById('concepto').value = '';
+        document.getElementById('categoria').value = '';
         paintSummary(summary);
         btn.disabled = false; btn.textContent = 'Guardar gasto';
         document.getElementById('monto').focus();
