@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+  :root{
+    --bg:#0f1420; --card:#171d2c; --border:#2a3247; --text:#e8ecf5; --muted:#8b93a7;
+    --blue:#5b8def; --green:#3ecf8e; --amber:#f2b84b; --red:#f2545b; --purple:#a78bfa;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding:16px 16px 100px;
+  }
+  h1{font-size:19px;margin:4px 0 14px;}
+  .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+  .summary .cell{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;}
+  .summary .n{font-size:20px;font-weight:700;}
+  .summary .l{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  label{display:block;font-size:13px;color:var(--muted);margin:16px 0 8px;}
+  input[type=number], input[type=date], input[type=text]{
+    width:100%; background:var(--card); border:1px solid var(--border); color:var(--text);
+    border-radius:12px; padding:14px; font-size:18px; -webkit-appearance:none;
+  }
+  input[type=number]{font-size:28px; font-weight:700; text-align:center;}
+
+  .chips{display:flex; flex-wrap:wrap; gap:8px;}
+  .chip{
+    flex:1 1 auto; min-width:90px; text-align:center;
+    background:var(--card); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:12px 10px; font-size:14px; cursor:pointer; user-select:none;
+  }
+  .chip.active{background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700;}
+  .chip.active.alan{background:var(--purple); border-color:var(--purple);}
+
+  .submit-bar{
+    position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    background:linear-gradient(0deg, var(--bg) 70%, transparent);
+  }
+  button#save{
+    width:100%; padding:16px; border:none; border-radius:14px; font-size:17px; font-weight:700;
+    background:var(--green); color:#07251a; cursor:pointer;
+  }
+  button#save:disabled{opacity:.5;}
+
+  .toast{
+    position:fixed; top:14px; left:16px; right:16px; padding:12px 16px; border-radius:12px;
+    background:var(--green); color:#07251a; font-weight:700; text-align:center;
+    transform:translateY(-120px); transition:transform .25s ease; z-index:10;
+  }
+  .toast.show{transform:translateY(0);}
+  .toast.error{background:var(--red); color:#fff;}
+
+  .nota{resize:none;}
+</style>
+</head>
+<body>
+
+  <div class="toast" id="toast"></div>
+
+  <h1>💸 Gastos</h1>
+
+  <div class="summary">
+    <div class="cell"><div class="n" id="s-hoy">—</div><div class="l">Hoy</div></div>
+    <div class="cell"><div class="n" id="s-mes">—</div><div class="l">Este mes</div></div>
+    <div class="cell"><div class="n" id="s-bbva">—</div><div class="l">BBVA Oro (acumulado)</div></div>
+    <div class="cell"><div class="n" id="s-banamex">—</div><div class="l">Banamex Joy (acumulado)</div></div>
+  </div>
+
+  <label>Monto</label>
+  <input type="number" id="monto" inputmode="decimal" placeholder="0" autofocus>
+
+  <label>Categoría</label>
+  <div class="chips" id="chips-categoria"></div>
+
+  <label>Banco / forma de pago</label>
+  <div class="chips" id="chips-banco"></div>
+
+  <label>De quién</label>
+  <div class="chips" id="chips-quien"></div>
+
+  <label>Fecha</label>
+  <input type="date" id="fecha">
+
+  <label>Nota (opcional)</label>
+  <input type="text" id="nota" placeholder="Ej. Uber al trabajo">
+
+  <div class="submit-bar">
+    <button id="save">Guardar gasto</button>
+  </div>
+
+<script>
+  var state = { categoria: null, banco: null, quien: null };
+
+  function money(n){
+    n = Number(n) || 0;
+    return '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+  }
+
+  function buildChips(containerId, options, stateKey, alanAware){
+    var el = document.getElementById(containerId);
+    el.innerHTML = '';
+    options.forEach(function(opt){
+      var chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = opt;
+      chip.onclick = function(){
+        state[stateKey] = opt;
+        Array.prototype.forEach.call(el.children, function(c){
+          c.classList.remove('active','alan');
+        });
+        chip.classList.add('active');
+        if (alanAware && opt === 'Alan') chip.classList.add('alan');
+      };
+      el.appendChild(chip);
+    });
+  }
+
+  function showToast(msg, isError){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isError ? ' error' : '');
+    setTimeout(function(){ t.className = 'toast'; }, 2200);
+  }
+
+  function paintSummary(s){
+    document.getElementById('s-hoy').textContent = money(s.hoy);
+    document.getElementById('s-mes').textContent = money(s.mes);
+    document.getElementById('s-bbva').textContent = money(s.bbva);
+    document.getElementById('s-banamex').textContent = money(s.banamex);
+  }
+
+  function refreshSummary(){
+    google.script.run.withSuccessHandler(paintSummary).getSummary();
+  }
+
+  function init(){
+    var today = new Date();
+    document.getElementById('fecha').value = today.toISOString().slice(0,10);
+
+    google.script.run.withSuccessHandler(function(opts){
+      buildChips('chips-categoria', opts.categorias, 'categoria', false);
+      buildChips('chips-banco', opts.bancos, 'banco', false);
+      buildChips('chips-quien', opts.quienes, 'quien', true);
+    }).getOptions();
+
+    refreshSummary();
+  }
+
+  document.getElementById('save').addEventListener('click', function(){
+    var monto = document.getElementById('monto').value;
+    if (!monto || Number(monto) <= 0){ showToast('Falta el monto', true); return; }
+    if (!state.categoria){ showToast('Elige una categoría', true); return; }
+    if (!state.banco){ showToast('Elige el banco', true); return; }
+    if (!state.quien){ showToast('Elige de quién', true); return; }
+
+    var btn = document.getElementById('save');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+
+    var payload = {
+      monto: monto,
+      categoria: state.categoria,
+      banco: state.banco,
+      quien: state.quien,
+      fecha: document.getElementById('fecha').value,
+      nota: document.getElementById('nota').value
+    };
+
+    google.script.run
+      .withSuccessHandler(function(summary){
+        showToast('Gasto guardado ✓', false);
+        document.getElementById('monto').value = '';
+        document.getElementById('nota').value = '';
+        paintSummary(summary);
+        btn.disabled = false; btn.textContent = 'Guardar gasto';
+        document.getElementById('monto').focus();
+      })
+      .withFailureHandler(function(err){
+        showToast(err.message || 'Error al guardar', true);
+        btn.disabled = false; btn.textContent = 'Guardar gasto';
+      })
+      .addExpense(payload);
+  });
+
+  init();
+</script>
+</body>
+</html>
