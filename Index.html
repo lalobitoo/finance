@@ -12,9 +12,11 @@
   body{
     margin:0; background:var(--bg); color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    padding:16px 16px 100px;
+    padding:16px 16px 170px;
   }
   h1{font-size:19px;margin:4px 0 14px;}
+  h2{font-size:15px;margin:18px 0 10px;color:var(--muted);}
+
   .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
   .summary .cell{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;}
   .summary .n{font-size:20px;font-weight:700;}
@@ -41,7 +43,7 @@
   .chip.active{background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700;}
 
   .submit-bar{
-    position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    position:fixed; left:0; right:0; bottom:60px; padding:12px 16px;
     background:linear-gradient(0deg, var(--bg) 70%, transparent);
   }
   button#save{
@@ -53,44 +55,122 @@
   .toast{
     position:fixed; top:14px; left:16px; right:16px; padding:12px 16px; border-radius:12px;
     background:var(--green); color:#07251a; font-weight:700; text-align:center;
-    transform:translateY(-120px); transition:transform .25s ease; z-index:10;
+    transform:translateY(-120px); transition:transform .25s ease; z-index:20;
   }
   .toast.show{transform:translateY(0);}
   .toast.error{background:var(--red); color:#fff;}
 
-  .nota{resize:none;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .list-row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:12px 14px; margin-bottom:8px;
+  }
+  .list-row .c{font-size:14px; font-weight:600;}
+  .list-row .sub{font-size:11px; color:var(--muted); margin-top:2px;}
+  .list-row .amt{font-size:15px; font-weight:700; white-space:nowrap;}
+
+  .total-row{
+    display:flex; justify-content:space-between; align-items:center;
+    background:rgba(91,141,239,.15); border:1px solid var(--blue); border-radius:12px;
+    padding:12px 14px; margin-bottom:14px; font-weight:700;
+  }
+
+  .card-box{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:14px; margin-bottom:12px;
+  }
+  .card-box .bank{font-size:14px; font-weight:700; margin-bottom:8px;}
+  .card-box .row{display:flex; justify-content:space-between; font-size:13px; padding:4px 0; color:var(--muted);}
+  .card-box .row b{color:var(--text); font-weight:600;}
+
+  .dash-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;}
+  .dash-grid .cell{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px;}
+  .dash-grid .cell.wide{grid-column:1 / -1;}
+  .dash-grid .n{font-size:22px; font-weight:700;}
+  .dash-grid .n.neg{color:var(--red);}
+  .dash-grid .n.pos{color:var(--green);}
+  .dash-grid .l{font-size:11px; color:var(--muted); margin-top:3px;}
+
+  .empty{color:var(--muted); font-size:13px; text-align:center; padding:20px 0;}
+
+  .tabbar{
+    position:fixed; left:0; right:0; bottom:0; display:flex;
+    background:#0b0f18; border-top:1px solid var(--border);
+    padding-bottom:env(safe-area-inset-bottom); z-index:15;
+  }
+  .tab{
+    flex:1; text-align:center; padding:9px 4px 8px; color:var(--muted);
+    font-size:10px; cursor:pointer; user-select:none;
+  }
+  .tab .ic{font-size:19px; display:block; margin-bottom:2px;}
+  .tab.active{color:var(--blue);}
 </style>
 </head>
 <body>
 
   <div class="toast" id="toast"></div>
 
-  <h1>💸 Gastos</h1>
+  <!-- ===================== GASTOS ===================== -->
+  <div class="view active" id="view-gastos">
+    <h1>💸 Gastos</h1>
 
-  <div class="summary">
-    <div class="cell"><div class="n" id="s-hoy">—</div><div class="l">Hoy</div></div>
-    <div class="cell"><div class="n" id="s-mes">—</div><div class="l">Este mes</div></div>
-    <div class="cell"><div class="n" id="s-bbva">—</div><div class="l">BBVA Oro (acumulado)</div></div>
-    <div class="cell"><div class="n" id="s-banamex">—</div><div class="l">Banamex Joy (acumulado)</div></div>
+    <div class="summary">
+      <div class="cell"><div class="n" id="s-hoy">—</div><div class="l">Hoy</div></div>
+      <div class="cell"><div class="n" id="s-mes">—</div><div class="l">Este mes</div></div>
+      <div class="cell"><div class="n" id="s-bbva">—</div><div class="l">BBVA Oro (acumulado)</div></div>
+      <div class="cell"><div class="n" id="s-banamex">—</div><div class="l">Banamex Joy (acumulado)</div></div>
+    </div>
+
+    <label>Monto</label>
+    <input type="number" id="monto" inputmode="decimal" placeholder="0" autofocus>
+
+    <label>¿En qué fue?</label>
+    <input type="text" id="concepto" placeholder="Ej. Uber al trabajo, súper, gasolina…">
+
+    <label>Categoría</label>
+    <select id="categoria"><option value="">Selecciona…</option></select>
+
+    <label>Banco / forma de pago</label>
+    <div class="chips" id="chips-banco"></div>
+
+    <label>Fecha</label>
+    <input type="date" id="fecha">
   </div>
 
-  <label>Monto</label>
-  <input type="number" id="monto" inputmode="decimal" placeholder="0" autofocus>
+  <!-- ===================== FIJOS ===================== -->
+  <div class="view" id="view-fijos">
+    <h1>📌 Gastos fijos</h1>
+    <div id="fijos-total"></div>
+    <div id="fijos-list"><div class="empty">Cargando…</div></div>
+  </div>
 
-  <label>¿En qué fue?</label>
-  <input type="text" id="concepto" placeholder="Ej. Uber al trabajo, súper, gasolina…">
+  <!-- ===================== INGRESOS ===================== -->
+  <div class="view" id="view-ingresos">
+    <h1>💰 Ingresos</h1>
+    <div id="ingresos-total"></div>
+    <div id="ingresos-list"><div class="empty">Cargando…</div></div>
+  </div>
 
-  <label>Categoría</label>
-  <select id="categoria"><option value="">Selecciona…</option></select>
+  <!-- ===================== DASHBOARD ===================== -->
+  <div class="view" id="view-dashboard">
+    <h1>📊 Dashboard</h1>
+    <div class="dash-grid" id="dash-grid"><div class="cell wide empty">Cargando…</div></div>
+    <h2>Tarjetas</h2>
+    <div id="dash-cards"></div>
+  </div>
 
-  <label>Banco / forma de pago</label>
-  <div class="chips" id="chips-banco"></div>
-
-  <label>Fecha</label>
-  <input type="date" id="fecha">
-
-  <div class="submit-bar">
+  <div class="submit-bar" id="submit-bar">
     <button id="save">Guardar gasto</button>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab active" data-view="gastos"><span class="ic">💸</span>Gastos</div>
+    <div class="tab" data-view="fijos"><span class="ic">📌</span>Fijos</div>
+    <div class="tab" data-view="ingresos"><span class="ic">💰</span>Ingresos</div>
+    <div class="tab" data-view="dashboard"><span class="ic">📊</span>Dashboard</div>
   </div>
 
 <script>
@@ -106,6 +186,43 @@
     return '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
   }
 
+  function showToast(msg, isError){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isError ? ' error' : '');
+    setTimeout(function(){ t.className = 'toast'; }, 2200);
+  }
+
+  function apiGet(action){
+    return fetch(API_URL + '?action=' + action)
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.error) { showToast(data.error, true); throw new Error(data.error); }
+        return data;
+      });
+  }
+
+  // ---------------- Navegación por pestañas ----------------
+  var loaded = { fijos:false, ingresos:false, dashboard:false };
+
+  function showView(name){
+    document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+    document.getElementById('view-' + name).classList.add('active');
+    document.querySelectorAll('.tab').forEach(function(t){
+      t.classList.toggle('active', t.dataset.view === name);
+    });
+    document.getElementById('submit-bar').style.display = (name === 'gastos') ? 'block' : 'none';
+
+    if (name === 'fijos' && !loaded.fijos){ loaded.fijos = true; loadFijos(); }
+    if (name === 'ingresos' && !loaded.ingresos){ loaded.ingresos = true; loadIngresos(); }
+    if (name === 'dashboard'){ loadDashboard(); } // siempre fresco, es el resumen general
+  }
+
+  document.querySelectorAll('.tab').forEach(function(tab){
+    tab.addEventListener('click', function(){ showView(tab.dataset.view); });
+  });
+
+  // ---------------- Pestaña Gastos ----------------
   function buildChips(containerId, options, stateKey){
     var el = document.getElementById(containerId);
     el.innerHTML = '';
@@ -124,13 +241,6 @@
     });
   }
 
-  function showToast(msg, isError){
-    var t = document.getElementById('toast');
-    t.textContent = msg;
-    t.className = 'toast show' + (isError ? ' error' : '');
-    setTimeout(function(){ t.className = 'toast'; }, 2200);
-  }
-
   function paintSummary(s){
     document.getElementById('s-hoy').textContent = money(s.hoy);
     document.getElementById('s-mes').textContent = money(s.mes);
@@ -139,32 +249,22 @@
   }
 
   function refreshSummary(){
-    fetch(API_URL + '?action=summary')
-      .then(function(r){ return r.json(); })
-      .then(function(s){
-        if (s.error) { showToast(s.error, true); return; }
-        paintSummary(s);
-      })
-      .catch(function(err){ showToast('No se pudo conectar: ' + err.message, true); });
+    apiGet('summary').then(paintSummary).catch(function(){});
   }
 
-  function init(){
+  function initGastos(){
     var today = new Date();
     document.getElementById('fecha').value = today.toISOString().slice(0,10);
 
-    fetch(API_URL + '?action=options')
-      .then(function(r){ return r.json(); })
-      .then(function(opts){
-        if (opts.error) { showToast(opts.error, true); return; }
-        buildChips('chips-banco', opts.bancos, 'banco');
-        var sel = document.getElementById('categoria');
-        opts.categorias.forEach(function(cat){
-          var o = document.createElement('option');
-          o.value = cat; o.textContent = cat;
-          sel.appendChild(o);
-        });
-      })
-      .catch(function(err){ showToast('No se pudo conectar: ' + err.message, true); });
+    apiGet('options').then(function(opts){
+      buildChips('chips-banco', opts.bancos, 'banco');
+      var sel = document.getElementById('categoria');
+      opts.categorias.forEach(function(cat){
+        var o = document.createElement('option');
+        o.value = cat; o.textContent = cat;
+        sel.appendChild(o);
+      });
+    }).catch(function(){});
 
     refreshSummary();
   }
@@ -213,7 +313,88 @@
       });
   });
 
-  init();
+  // ---------------- Pestaña Fijos ----------------
+  function loadFijos(){
+    document.getElementById('fijos-list').innerHTML = '<div class="empty">Cargando…</div>';
+    apiGet('fijos').then(function(data){
+      document.getElementById('fijos-total').innerHTML =
+        '<div class="total-row"><span>Total mensual</span><span>' + money(data.total) + '</span></div>';
+
+      if (!data.items.length){
+        document.getElementById('fijos-list').innerHTML = '<div class="empty">No hay gastos fijos capturados.</div>';
+        return;
+      }
+      var html = '';
+      data.items.forEach(function(it){
+        var sub = [];
+        if (it.diaPago) sub.push('Día de pago: ' + it.diaPago);
+        if (it.ultimaFechaPago) sub.push('Último pago: ' + it.ultimaFechaPago);
+        html += '<div class="list-row">' +
+          '<div><div class="c">' + it.concepto + '</div>' +
+          (sub.length ? '<div class="sub">' + sub.join(' · ') + '</div>' : '') + '</div>' +
+          '<div class="amt">' + money(it.cantidad) + '</div></div>';
+      });
+      document.getElementById('fijos-list').innerHTML = html;
+    }).catch(function(){
+      document.getElementById('fijos-list').innerHTML = '<div class="empty">No se pudo cargar.</div>';
+    });
+  }
+
+  // ---------------- Pestaña Ingresos ----------------
+  function loadIngresos(){
+    document.getElementById('ingresos-list').innerHTML = '<div class="empty">Cargando…</div>';
+    apiGet('ingresos').then(function(data){
+      document.getElementById('ingresos-total').innerHTML =
+        '<div class="total-row"><span>Total mensual</span><span>' + money(data.total) + '</span></div>';
+
+      if (!data.items.length){
+        document.getElementById('ingresos-list').innerHTML = '<div class="empty">No hay ingresos capturados.</div>';
+        return;
+      }
+      var html = '';
+      data.items.forEach(function(it){
+        html += '<div class="list-row">' +
+          '<div><div class="c">' + it.concepto + '</div>' +
+          (it.dia ? '<div class="sub">' + it.dia + '</div>' : '') + '</div>' +
+          '<div class="amt">' + money(it.cantidad) + '</div></div>';
+      });
+      document.getElementById('ingresos-list').innerHTML = html;
+    }).catch(function(){
+      document.getElementById('ingresos-list').innerHTML = '<div class="empty">No se pudo cargar.</div>';
+    });
+  }
+
+  // ---------------- Pestaña Dashboard ----------------
+  function loadDashboard(){
+    document.getElementById('dash-grid').innerHTML = '<div class="cell wide empty">Cargando…</div>';
+    document.getElementById('dash-cards').innerHTML = '';
+    apiGet('dashboard').then(function(d){
+      var libreClass = d.libre < 0 ? 'neg' : 'pos';
+      document.getElementById('dash-grid').innerHTML =
+        '<div class="cell"><div class="n">' + money(d.ingresos) + '</div><div class="l">Ingresos</div></div>' +
+        '<div class="cell"><div class="n">' + money(d.fijos) + '</div><div class="l">Gastos fijos</div></div>' +
+        '<div class="cell"><div class="n">' + money(d.variableMes) + '</div><div class="l">Gastado este mes (día a día)</div></div>' +
+        '<div class="cell wide"><div class="n ' + libreClass + '">' + money(d.libre) + '</div><div class="l">Te queda libre</div></div>';
+
+      var cardsHtml = '';
+      [['BBVA Oro', d.bbva], ['Banamex Joy', d.banamex]].forEach(function(pair){
+        var name = pair[0], info = pair[1];
+        if (!info) return;
+        cardsHtml += '<div class="card-box">' +
+          '<div class="bank">' + name + '</div>' +
+          '<div class="row"><span>Saldo anterior</span><b>' + money(info.saldoAnterior) + '</b></div>' +
+          '<div class="row"><span>Gastado desde el corte</span><b>' + money(info.gastadoDesdeCorte) + '</b></div>' +
+          '<div class="row"><span>Pago sugerido</span><b>' + money(info.pagoSugerido) + '</b></div>' +
+          (info.proximoCorte ? '<div class="row"><span>Próxima fecha de corte</span><b>' + info.proximoCorte + '</b></div>' : '') +
+          '</div>';
+      });
+      document.getElementById('dash-cards').innerHTML = cardsHtml;
+    }).catch(function(){
+      document.getElementById('dash-grid').innerHTML = '<div class="cell wide empty">No se pudo cargar.</div>';
+    });
+  }
+
+  initGastos();
 </script>
 </body>
 </html>
