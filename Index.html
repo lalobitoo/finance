@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<base target="_top">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
   :root{
@@ -93,6 +93,11 @@
   </div>
 
 <script>
+  // ⚠️ Pega aquí la URL de tu implementación de Apps Script (termina en /exec).
+  // Si vuelves a implementar como "nueva implementación" (no "nueva versión"), esta URL cambia
+  // y hay que actualizarla aquí.
+  var API_URL = 'https://script.google.com/macros/s/AKfycbzxcVSBTqKHp38JfhhPQQh2_9hVuGxUOhA6g5Gckl-iJ8qtvwuqe9dmwrMqV3m6hJHn/exec';
+
   var state = { categoria: null, banco: null, quien: null };
 
   function money(n){
@@ -134,18 +139,28 @@
   }
 
   function refreshSummary(){
-    google.script.run.withSuccessHandler(paintSummary).getSummary();
+    fetch(API_URL + '?action=summary')
+      .then(function(r){ return r.json(); })
+      .then(function(s){
+        if (s.error) { showToast(s.error, true); return; }
+        paintSummary(s);
+      })
+      .catch(function(err){ showToast('No se pudo conectar: ' + err.message, true); });
   }
 
   function init(){
     var today = new Date();
     document.getElementById('fecha').value = today.toISOString().slice(0,10);
 
-    google.script.run.withSuccessHandler(function(opts){
-      buildChips('chips-categoria', opts.categorias, 'categoria', false);
-      buildChips('chips-banco', opts.bancos, 'banco', false);
-      buildChips('chips-quien', opts.quienes, 'quien', true);
-    }).getOptions();
+    fetch(API_URL + '?action=options')
+      .then(function(r){ return r.json(); })
+      .then(function(opts){
+        if (opts.error) { showToast(opts.error, true); return; }
+        buildChips('chips-categoria', opts.categorias, 'categoria', false);
+        buildChips('chips-banco', opts.bancos, 'banco', false);
+        buildChips('chips-quien', opts.quienes, 'quien', true);
+      })
+      .catch(function(err){ showToast('No se pudo conectar: ' + err.message, true); });
 
     refreshSummary();
   }
@@ -169,8 +184,17 @@
       nota: document.getElementById('nota').value
     };
 
-    google.script.run
-      .withSuccessHandler(function(summary){
+    fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload) // sin header de Content-Type a propósito: evita el preflight CORS
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(summary){
+        if (summary.error) {
+          showToast(summary.error, true);
+          btn.disabled = false; btn.textContent = 'Guardar gasto';
+          return;
+        }
         showToast('Gasto guardado ✓', false);
         document.getElementById('monto').value = '';
         document.getElementById('nota').value = '';
@@ -178,11 +202,10 @@
         btn.disabled = false; btn.textContent = 'Guardar gasto';
         document.getElementById('monto').focus();
       })
-      .withFailureHandler(function(err){
-        showToast(err.message || 'Error al guardar', true);
+      .catch(function(err){
+        showToast('No se pudo conectar: ' + err.message, true);
         btn.disabled = false; btn.textContent = 'Guardar gasto';
-      })
-      .addExpense(payload);
+      });
   });
 
   init();
