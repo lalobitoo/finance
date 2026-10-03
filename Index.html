@@ -174,8 +174,7 @@
     var concepto = document.getElementById('concepto').value.trim();
     var categoria = document.getElementById('categoria').value;
     if (!monto || Number(monto) <= 0){ showToast('Falta el monto', true); return; }
-    if (!concepto){ showToast('Escribe en qué fue el gasto', true); return; }
-    if (!categoria){ showToast('Elige una categoría', true); return; }
+    if (!concepto && !categoria){ showToast('Escribe en qué fue o elige una categoría', true); return; }
     if (!state.banco){ showToast('Elige el banco', true); return; }
 
     var btn = document.getElementById('save');
