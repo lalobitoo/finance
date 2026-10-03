@@ -41,6 +41,8 @@
     border-radius:10px; padding:12px 10px; font-size:14px; cursor:pointer; user-select:none;
   }
   .chip.active{background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700;}
+  .chips.filter{gap:6px;}
+  .chips.filter .chip{flex:none; min-width:0; padding:7px 14px; font-size:12px;}
 
   .submit-bar{
     position:fixed; left:0; right:0; bottom:60px; padding:12px 16px;
@@ -143,6 +145,7 @@
   <!-- ===================== FIJOS ===================== -->
   <div class="view" id="view-fijos">
     <h1>📌 Gastos fijos</h1>
+    <div class="chips filter" id="fijos-filtro" style="margin-bottom:12px;"></div>
     <div id="fijos-total"></div>
     <div id="fijos-list"><div class="empty">Cargando…</div></div>
   </div>
@@ -314,27 +317,61 @@
   });
 
   // ---------------- Pestaña Fijos ----------------
+  var fijosData = null;
+  var fijosFiltro = 'Todos';
+
+  function renderFijos(){
+    if (!fijosData) return;
+    var items = fijosData.items.filter(function(it){
+      return fijosFiltro === 'Todos' || it.dueno === fijosFiltro;
+    });
+    var total = items.reduce(function(sum, it){ return sum + it.cantidad; }, 0);
+
+    document.getElementById('fijos-total').innerHTML =
+      '<div class="total-row"><span>Total' + (fijosFiltro !== 'Todos' ? ' — ' + fijosFiltro : '') + '</span><span>' + money(total) + '</span></div>';
+
+    if (!items.length){
+      document.getElementById('fijos-list').innerHTML = '<div class="empty">Nada por aquí.</div>';
+      return;
+    }
+    var html = '';
+    items.forEach(function(it){
+      var sub = [];
+      if (it.dueno) sub.push(it.dueno);
+      if (it.banco) sub.push(it.banco);
+      if (it.diaPago) sub.push('día ' + it.diaPago);
+      if (it.progreso) sub.push(it.progreso);
+      html += '<div class="list-row">' +
+        '<div><div class="c">' + it.concepto + '</div>' +
+        (sub.length ? '<div class="sub">' + sub.join(' · ') + '</div>' : '') + '</div>' +
+        '<div class="amt">' + money(it.cantidad) + '</div></div>';
+    });
+    document.getElementById('fijos-list').innerHTML = html;
+  }
+
   function loadFijos(){
     document.getElementById('fijos-list').innerHTML = '<div class="empty">Cargando…</div>';
     apiGet('fijos').then(function(data){
-      document.getElementById('fijos-total').innerHTML =
-        '<div class="total-row"><span>Total mensual</span><span>' + money(data.total) + '</span></div>';
+      fijosData = data;
+      fijosFiltro = 'Todos';
 
-      if (!data.items.length){
-        document.getElementById('fijos-list').innerHTML = '<div class="empty">No hay gastos fijos capturados.</div>';
-        return;
-      }
-      var html = '';
-      data.items.forEach(function(it){
-        var sub = [];
-        if (it.diaPago) sub.push('Día de pago: ' + it.diaPago);
-        if (it.ultimaFechaPago) sub.push('Último pago: ' + it.ultimaFechaPago);
-        html += '<div class="list-row">' +
-          '<div><div class="c">' + it.concepto + '</div>' +
-          (sub.length ? '<div class="sub">' + sub.join(' · ') + '</div>' : '') + '</div>' +
-          '<div class="amt">' + money(it.cantidad) + '</div></div>';
+      var dueños = ['Todos'].concat(data.duenos || []);
+      var filtroEl = document.getElementById('fijos-filtro');
+      filtroEl.innerHTML = '';
+      dueños.forEach(function(d){
+        var chip = document.createElement('div');
+        chip.className = 'chip' + (d === 'Todos' ? ' active' : '');
+        chip.textContent = d;
+        chip.onclick = function(){
+          fijosFiltro = d;
+          Array.prototype.forEach.call(filtroEl.children, function(c){ c.classList.remove('active'); });
+          chip.classList.add('active');
+          renderFijos();
+        };
+        filtroEl.appendChild(chip);
       });
-      document.getElementById('fijos-list').innerHTML = html;
+
+      renderFijos();
     }).catch(function(){
       document.getElementById('fijos-list').innerHTML = '<div class="empty">No se pudo cargar.</div>';
     });
