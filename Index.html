@@ -154,6 +154,8 @@
       <div class="cell"><div class="n" id="s-mes">—</div><div class="l">Este mes</div></div>
       <div class="cell"><div class="n" id="s-bbva">—</div><div class="l">BBVA Oro (acumulado)</div></div>
       <div class="cell"><div class="n" id="s-banamex">—</div><div class="l">Banamex Joy (acumulado)</div></div>
+      <div class="cell"><div class="n" id="s-bbva-ameses">—</div><div class="l">BBVA a meses (solo mío)</div></div>
+      <div class="cell"><div class="n" id="s-banamex-ameses">—</div><div class="l">Banamex a meses (solo mío)</div></div>
     </div>
 
     <label>Monto</label>
@@ -298,6 +300,8 @@
     document.getElementById('s-mes').textContent = money(s.mes);
     document.getElementById('s-bbva').textContent = money(s.bbva);
     document.getElementById('s-banamex').textContent = money(s.banamex);
+    document.getElementById('s-bbva-ameses').textContent = money(s.bbvaAMeses);
+    document.getElementById('s-banamex-ameses').textContent = money(s.banamexAMeses);
   }
 
   function refreshSummary(){
