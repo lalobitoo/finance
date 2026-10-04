@@ -205,7 +205,11 @@
 
     <div id="proyeccion-box"></div>
 
+    <h2>Ver como</h2>
+    <div class="chips filter" id="dash-filtro" style="margin-bottom:14px;"></div>
+
     <div class="dash-grid" id="dash-grid"><div class="cell wide empty">Cargando…</div></div>
+    <div id="dash-porcobrar"></div>
     <h2>Tarjetas</h2>
     <div id="dash-cards"></div>
   </div>
@@ -542,22 +546,53 @@
   });
 
   // ---------------- Pestaña Dashboard ----------------
+  var dashFiltro = 'Eduardo'; // por default te muestra solo lo tuyo; cambia con los chips
+  var dashFiltroInit = false;
+
   function loadDashboard(){
     document.getElementById('dash-grid').innerHTML = '<div class="cell wide empty">Cargando…</div>';
     document.getElementById('dash-cards').innerHTML = '';
     document.getElementById('proyeccion-box').innerHTML = '';
-    apiGet('dashboard').then(paintDashboard).catch(function(){
-      document.getElementById('dash-grid').innerHTML = '<div class="cell wide empty">No se pudo cargar.</div>';
-    });
+    fetch(API_URL + '?action=dashboard&dueno=' + encodeURIComponent(dashFiltro))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error) { showToast(d.error, true); return; }
+        paintDashboard(d);
+      })
+      .catch(function(){
+        document.getElementById('dash-grid').innerHTML = '<div class="cell wide empty">No se pudo cargar.</div>';
+      });
   }
 
   function paintDashboard(d){
+    // Chips de filtro — solo se arman una vez con la lista real de dueños
+    if (!dashFiltroInit){
+      dashFiltroInit = true;
+      var opciones = ['Todos'].concat(d.duenos || []);
+      if (opciones.indexOf(dashFiltro) === -1) dashFiltro = 'Todos';
+      var filtroEl = document.getElementById('dash-filtro');
+      filtroEl.innerHTML = '';
+      opciones.forEach(function(op){
+        var chip = document.createElement('div');
+        chip.className = 'chip' + (op === dashFiltro ? ' active' : '');
+        chip.textContent = op;
+        chip.onclick = function(){
+          dashFiltro = op;
+          Array.prototype.forEach.call(filtroEl.children, function(c){ c.classList.remove('active'); });
+          chip.classList.add('active');
+          loadDashboard();
+        };
+        filtroEl.appendChild(chip);
+      });
+    }
+
     var libreClass = d.libre < 0 ? 'neg' : 'pos';
+    var etiqueta = dashFiltro === 'Todos' ? '' : ' (' + dashFiltro + ')';
     document.getElementById('dash-grid').innerHTML =
       '<div class="cell"><div class="n">' + money(d.ingresos) + '</div><div class="l">Ingresos</div></div>' +
-      '<div class="cell"><div class="n">' + money(d.fijos) + '</div><div class="l">Gastos fijos</div></div>' +
+      '<div class="cell"><div class="n">' + money(d.fijos) + '</div><div class="l">Gastos fijos' + etiqueta + '</div></div>' +
       '<div class="cell"><div class="n">' + money(d.variableMes) + '</div><div class="l">Gastado este mes (día a día)</div></div>' +
-      '<div class="cell wide"><div class="n ' + libreClass + '">' + money(d.libre) + '</div><div class="l">Te queda libre (plan completo del mes)</div></div>';
+      '<div class="cell wide"><div class="n ' + libreClass + '">' + money(d.libre) + '</div><div class="l">Te queda libre' + etiqueta + '</div></div>';
 
     document.getElementById('saldo-input').value = d.saldoActual || '';
     document.getElementById('saldo-fecha').textContent = d.saldoFecha
@@ -566,12 +601,17 @@
 
     var proyClass = d.proyeccion < 0 ? 'warn' : 'ok';
     var mensaje = d.proyeccion < 0
-      ? 'Te faltan <b>' + money(Math.abs(d.proyeccion)) + '</b> para cubrir lo que falta de pagar este mes. Hay que ajustar.'
-      : 'Vas bien — después de pagar lo pendiente te sobrarían <b>' + money(d.proyeccion) + '</b>.';
+      ? 'Te faltan <b>' + money(Math.abs(d.proyeccion)) + '</b> para cubrir lo que falta de pagar este mes' + etiqueta + '. Hay que ajustar.'
+      : 'Vas bien — después de pagar lo pendiente' + etiqueta + ' te sobrarían <b>' + money(d.proyeccion) + '</b>.';
     document.getElementById('proyeccion-box').innerHTML =
       '<div class="proyeccion-box ' + proyClass + '">' +
       'Tienes ' + money(d.saldoActual) + ' + te faltan por recibir ' + money(d.pendienteRecibir) +
-      ' − te faltan por pagar ' + money(d.pendientePagar) + '<br>' + mensaje + '</div>';
+      ' − te faltan por pagar' + etiqueta + ' ' + money(d.pendientePagar) + '<br>' + mensaje + '</div>';
+
+    document.getElementById('dash-porcobrar').innerHTML = d.porCobrar > 0
+      ? '<div class="total-row" style="border-color:var(--purple); background:rgba(167,139,250,.14);">' +
+        '<span>Por cobrarle a Alan/Carolina este mes</span><span>' + money(d.porCobrar) + '</span></div>'
+      : '';
 
     var cardsHtml = '';
     [['BBVA Oro', d.bbva], ['Banamex Joy', d.banamex]].forEach(function(pair){
@@ -601,8 +641,8 @@
       .then(function(d){
         btn.disabled = false; btn.textContent = 'Guardar';
         if (d.error) { showToast(d.error, true); return; }
-        paintDashboard(d);
         showToast('Saldo actualizado ✓', false);
+        loadDashboard();
       })
       .catch(function(err){
         btn.disabled = false; btn.textContent = 'Guardar';
