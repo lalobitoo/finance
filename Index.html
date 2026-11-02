@@ -105,6 +105,11 @@
   .list-row .left{display:flex; align-items:center; gap:10px; flex:1; min-width:0;}
   .list-row .info{min-width:0;}
 
+  .dueno-sel{
+    margin-top:4px; padding:3px 6px; border-radius:8px; border:1px solid var(--border);
+    background:var(--bg); color:var(--muted); font-size:11px; max-width:110px;
+  }
+
   .small-btn{
     width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;
     background:transparent; color:var(--muted); font-size:12px; cursor:pointer; margin-bottom:10px;
@@ -373,6 +378,14 @@
   var fijosData = null;
   var fijosFiltro = 'Todos';
 
+  function duenoOptions(actual){
+    var lista = ['Eduardo','Alan','Carolina'];
+    (fijosData.duenos || []).forEach(function(d){ if (lista.indexOf(d) === -1) lista.push(d); });
+    var h = '<option value=""' + (!actual ? ' selected' : '') + '>Sin asignar</option>';
+    lista.forEach(function(d){ h += '<option value="' + d + '"' + (d === actual ? ' selected' : '') + '>' + d + '</option>'; });
+    return h + '<option value="__otro">Otro…</option>';
+  }
+
   function renderFijos(){
     if (!fijosData) return;
     var items = fijosData.items.filter(function(it){
@@ -390,7 +403,6 @@
     var html = '';
     items.forEach(function(it){
       var sub = [];
-      if (it.dueno) sub.push(it.dueno);
       if (it.banco) sub.push(it.banco);
       if (it.diaPago) sub.push('día ' + it.diaPago);
       if (it.terminado) sub.push('✓ liquidado');
@@ -401,9 +413,29 @@
         '<div class="info"><div class="c">' + it.concepto + '</div>' +
         (sub.length ? '<div class="sub"' + (it.terminado ? ' style="color:var(--green);"' : '') + '>' + sub.join(' · ') + '</div>' : '') + '</div>' +
         '</div>' +
-        '<div class="amt">' + money(it.cantidad) + '</div></div>';
+        '<div class="amt">' + money(it.cantidad) +
+        '<br><select class="dueno-sel" data-idx="' + it.idx + '">' + duenoOptions(it.dueno) + '</select></div></div>';
     });
     document.getElementById('fijos-list').innerHTML = html;
+
+    document.querySelectorAll('#fijos-list .dueno-sel').forEach(function(sel){
+      sel.addEventListener('change', function(){
+        var nuevo = sel.value;
+        if (nuevo === '__otro'){
+          nuevo = (prompt('Nombre del dueño:') || '').trim();
+          if (!nuevo){ renderFijos(); return; }
+        }
+        fetch(API_URL, { method:'POST', body: JSON.stringify({ action:'setDueno', idx:Number(sel.dataset.idx), dueno:nuevo }) })
+          .then(function(r){ return r.json(); })
+          .then(function(data){
+            if (data.error){ showToast(data.error, true); renderFijos(); return; }
+            fijosData = data;
+            renderFijos();
+            showToast('Dueño: ' + (nuevo || 'sin asignar'));
+          })
+          .catch(function(err){ showToast('No se pudo conectar: ' + err.message, true); renderFijos(); });
+      });
+    });
 
     document.querySelectorAll('#fijos-list .chk').forEach(function(chk){
       chk.addEventListener('change', function(){
